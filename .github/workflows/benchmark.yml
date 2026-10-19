@@ -1,0 +1,29 @@
+name: Linux Machine Benchmark
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Test CPU, RAM & Disk IOPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make benchmark script executable
+        run: chmod +x ./benchmark.sh
+
+      - name: Run Hardware Diagnostic and Benchmarks
+        run: ./benchmark.sh
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: |
+            benchmark_summary.md
+            *.log
