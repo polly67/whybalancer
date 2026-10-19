@@ -1,0 +1,47 @@
+name: Cloud Hot-Standby Benchmark (2 Cloud Runners)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  cloud-benchmark:
+    name: Cloud Hosted Runner (${{ matrix.cloud_runner }})
+    strategy:
+      matrix:
+        cloud_runner: [cloud-runner-1, cloud-runner-2]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Redis & Install Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y redis-server
+          sudo service redis-server start || sudo systemctl start redis-server
+          redis-cli ping
+          npm ci || npm install
+
+      - name: Execute Hot-Standby Chat, Texting & Chaos Failover Benchmark
+        run: |
+          chmod +x run_demo.sh
+          ./run_demo.sh
+
+      - name: Upload Test Logs & Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-logs-${{ matrix.cloud_runner }}
+          path: |
+            server.log
+            worker1.log
+            worker2.log

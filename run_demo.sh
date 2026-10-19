@@ -15,8 +15,12 @@ echo " 🚀 SRE ACCELERATED HOT-STANDBY RELAY TEST HARNESS"
 echo " Target Port: $PORT | Redis: $REDIS_URL"
 echo "=========================================================="
 
-# 1. Clean Redis heartbeat key
-echo "[Setup] Resetting Redis heartbeat key..."
+# 1. Ensure Redis is running and clean heartbeat key
+echo "[Setup] Checking Redis connectivity..."
+if ! redis-cli ping >/dev/null 2>&1; then
+  echo "[Setup] Starting local redis-server..."
+  sudo service redis-server start >/dev/null 2>&1 || sudo systemctl start redis-server >/dev/null 2>&1 || redis-server --daemonize yes >/dev/null 2>&1 || true
+fi
 redis-cli del "$HEARTBEAT_KEY" >/dev/null 2>&1 || true
 
 # Helper to kill background processes on exit
