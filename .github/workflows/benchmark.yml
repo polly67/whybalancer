@@ -7,8 +7,12 @@ on:
 
 jobs:
   benchmark:
-    name: Test CPU, RAM & Disk IOPS
-    runs-on: ubuntu-latest
+    name: Test CPU, RAM & Disk IOPS (${{ matrix.runner }})
+    strategy:
+      matrix:
+        runner: [self-hosted, ubuntu-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,7 +27,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: benchmark-results
+          name: benchmark-results-${{ matrix.runner }}
           path: |
             benchmark_summary.md
             *.log
