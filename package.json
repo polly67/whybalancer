@@ -1,0 +1,29 @@
+{
+  "name": "whybalancer-hot-standby-relay",
+  "version": "1.0.0",
+  "description": "Autonomous, zero-downtime hot-standby relay architecture for ephemeral runners",
+  "main": "server.js",
+  "scripts": {
+    "start:server": "node server.js",
+    "start:worker:active": "INITIAL_MODE=ACTIVE node worker.js",
+    "start:worker:standby": "INITIAL_MODE=STANDBY node worker.js",
+    "benchmark": "node benchmark.js",
+    "demo": "bash run_demo.sh"
+  },
+  "keywords": [
+    "hot-standby",
+    "high-availability",
+    "zero-downtime",
+    "failover",
+    "ephemeral-runners",
+    "github-actions",
+    "discord-gateway"
+  ],
+  "author": "Distributed Systems Architect & SRE Team",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.5.0",
+    "ws": "^8.18.0"
+  }
+}

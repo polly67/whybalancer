@@ -1,0 +1,78 @@
+name: Autonomous Zero-Downtime Hot-Standby Relay
+
+on:
+  # Allows manual seeding / bootstrapping of the active worker
+  workflow_dispatch:
+    inputs:
+      initial_mode:
+        description: 'Initial Worker Mode (ACTIVE, STANDBY, or AUTO)'
+        required: false
+        default: 'AUTO'
+        type: choice
+        options:
+          - AUTO
+          - ACTIVE
+          - STANDBY
+
+  # Triggered automatically by the active worker when the pre-warm threshold is hit
+  repository_dispatch:
+    types:
+      - spawn-standby
+      - failover-trigger
+
+# We deliberately DO NOT cancel-in-progress because the outgoing and incoming
+# workers must overlap during the pre-warm and failover promotion window.
+concurrency:
+  group: relay-rotation-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  relay-worker:
+    name: Hot-Standby Relay Runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 370 # Hard ceiling just above 6 hours (360m)
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install --omit=dev
+
+      - name: Launch Autonomous Relay Worker
+        env:
+          # Secrets (Sensitive credentials)
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+
+          # Dynamic Repository & Context Variables (Zero Hardcoding)
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          WORKER_ID: gh-runner-${{ github.run_id }}-${{ github.run_attempt }}
+          INITIAL_MODE: ${{ github.event.inputs.initial_mode || 'AUTO' }}
+
+          # Dynamic Timing Controls (Overridable via GitHub Repository Variables)
+          HEARTBEAT_INTERVAL_MS: ${{ vars.HEARTBEAT_INTERVAL_MS || '1000' }}
+          HEARTBEAT_TTL_SEC: ${{ vars.HEARTBEAT_TTL_SEC || '5' }}
+          STANDBY_POLL_INTERVAL_MS: ${{ vars.STANDBY_POLL_INTERVAL_MS || '1000' }}
+          HEARTBEAT_TIMEOUT_MS: ${{ vars.HEARTBEAT_TIMEOUT_MS || '3500' }}
+          PRE_WARM_MINUTES: ${{ vars.PRE_WARM_MINUTES || '340' }}
+          RUN_LIMIT_MINUTES: ${{ vars.RUN_LIMIT_MINUTES || '359' }}
+          HEARTBEAT_KEY: ${{ vars.HEARTBEAT_KEY || 'relay:discord:heartbeat' }}
+
+        run: |
+          echo "=========================================================="
+          echo " Starting Ephemeral Runner Relay Worker"
+          echo " Worker ID: $WORKER_ID"
+          echo " Repository: $GITHUB_REPOSITORY"
+          echo " Pre-Warm: ${PRE_WARM_MINUTES}m | Run Limit: ${RUN_LIMIT_MINUTES}m"
+          echo "=========================================================="
+          node discord_relay_worker.js
